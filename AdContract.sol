@@ -8,7 +8,8 @@ library Set{
         AdCampaign campaign;
         Platform executor;
         uint cost;
-        bytes32 link;
+        bytes32 banner_link;
+        bytes32 site_link;
     }
     
     struct Advertizer {
