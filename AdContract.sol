@@ -1,12 +1,28 @@
 pragma solidity >=0.4.22 <0.6.0;
-pragma experimental ABIEncoderV2;
 
 library Set{
+    
+    enum PlatformType{
+        Type1,
+        Type2,
+        Type3,
+        Type4,
+        Type5
+    }
+    
+    enum CampaignType{
+        Type1,
+        Type2,
+        Type3,
+        Type4,
+        Type5
+    }
+    
     struct Order {
         string description;
-        Advertizer customer;
-        AdCampaign campaign;
-        Platform executor;
+        address advertizer;
+        address campaign;
+        address platform;
         uint cost;
         bytes32 banner_link;
         bytes32 site_link;
@@ -15,45 +31,61 @@ library Set{
     struct Advertizer {
         bytes32 name;
         string description;
-        address adv_address;
+        address advertizer;
+        uint balance;
         uint256 num_adjusted;
-        uint256 num_reported;// advertizer rank = (number adjusted transfers)/(number reported transfers)
-        AdCampaign[] campaigns;
-        string[] feedbacks;
+        uint256 num_reported; // advertizer rank = (number adjusted transfers)/(number reported transfers)
+        address[] campaigns;
     }
     
     struct Platform {
         bytes32 name;
         string description;
-        address plat_address;
+        address platform;
+        uint balance;
         uint256 num_adjusted;
         uint256 num_reported; // platform rank = (number adjusted clicks)/(number reported clicks)
-        bytes32[] content_types;
-        bytes32[] ad_type_filter;
-        string[] feedbacks;
+        Set.PlatformType[] content_types;
+        Set.CampaignType[] ad_type_filter;
     }
+    
+    struct Feedback {
+        string message;
+        address to;
+        address from;
+        uint grade; //from 1 to 10
+    }
+    
 
 }
 
 contract AdCampaign {
     
-    address owner;
+
+    address public owner;
     bytes32 public campaign_name;
     string public campaign_description;
-    Set.Order[] public orders;
+    
+    // Orders for platform (by platform address)
+    mapping (address  => Set.Order[]) public orders;
+    function orders_count(address platform_address) public view returns (uint){
+        return orders[platform_address].length;
+    }
+
+    
 
     // retruns is it porn or someting else. Should be checked
-    bytes32[] public content_types;
+    Set.CampaignType[] public  campaign_types;
     
     
     constructor(bytes32 _campaign_name,
-                string memory _campaign_description,bytes32[] memory _content_types)
+                string memory _campaign_description,Set.CampaignType[] memory _campaign_types)
                 public {
         
         owner = msg.sender;
         campaign_name = _campaign_name;
         campaign_description = _campaign_description;
-        content_types = _content_types;
+        campaign_types = _campaign_types;
     }
     
     modifier onlyOwner() {
@@ -71,101 +103,264 @@ contract ManualAdCampaign is AdCampaign{
     AdContract ad_contract;
      
     constructor(bytes32 campaign_name,string memory campaign_description,
-                bytes32[] memory content_types, address ad_contract_address) 
+                Set.CampaignType[] memory content_types, address ad_contract_address) 
                 AdCampaign (campaign_name,campaign_description,content_types)
                 public {
         ad_contract = AdContract(ad_contract_address);
     }
     
 
-    // set list of sugessted orders 
-    function set_orders (Set.Order[] memory _orders)  public onlyOwner {
-        reset_orders();
-        for (uint i = 0; i < _orders.length; i++) {
-            orders.push(_orders[i]);
-        }
+    // add new order  
+    function add_order (
+        string memory description,
+        address advertizer,
+        address campaign,
+        address platform,
+        uint cost,
+        bytes32 banner_link,
+        bytes32 site_link)
+        
+        public onlyOwner returns (uint) {
+        Set.Order memory order = Set.Order(description, advertizer, campaign, platform, cost, banner_link, site_link);
+        orders[platform].push(order);
+        
+        uint index = orders[platform].length-1;
+        return index;
     }
     
-    function reset_orders() public onlyOwner{
-        delete orders;
+    function remove_platform_order(address platform, uint index) public onlyOwner {
+        delete orders[platform][index];
+
     }
+    
+    
 
     // Report transfer and resend it to contract
-    function report_transfer(Set.Order memory order) public {
-        if (msg.sender == owner){
-            ad_contract.report_transfer(order);
-        }
-        
+    function report_transfer(address platform, uint index,uint cost, uint num_transfers) public onlyOwner {
+        ad_contract.report_transfer(address(this),platform,index,cost, num_transfers);
     }
 
 }
 
 
 contract AdContract {
-    
-    Set.Platform[] public platforms;
-    Set.Advertizer[] public Advertizers;
 
     
-    // Add new platform: store its name, address, types (topicts of site)
-    // and rstrictions (ex. not pornadvertising)
+    // Reported clicks of platform invoices[campaign][platform][index][cost]=> num_clics
+    mapping (address => mapping(address => mapping(uint => mapping(uint => uint)))) reported_clicks;
+    
+    // Reported transfers of advertizer invoices[campaign][platform][index][cost]=> num_clics
+    mapping (address => mapping(address => mapping(uint => mapping(uint => uint)))) reported_transfers;
+    
+    //All Campaigns
+    address[] public registrated_campaigns;
+    mapping (address => AdCampaign) public campaigns;
+
+    //All Platform
+    address[] public registrated_platforms;
+    mapping (address => Set.Platform) public platforms;
+    
+    //All Advertizers
+    address[] public registrated_advertizers;
+    mapping (address => Set.Advertizer) public advertizers;
+    
+    //Feedbacks
+    mapping (address => Set.Feedback[]) public feedbacks;
+    
+    
+    // Add new platform: store its name, address, types (topics of site)
+    // and restrictions (ex. not porn advertising)
     // return True/Flase if ol ok
-    function register_advertising_platform (bytes32 name, bytes32[] memory content_types,  bytes32[] memory ad_type_filter) public;
+    function register_advertising_platform (bytes32 name,
+                                            string memory description,
+                                            Set.PlatformType[] memory content_types,  
+                                            Set.CampaignType[] memory ad_type_filter)
+        public {
+        
+        address platform_address = msg.sender;
+        Set.Platform memory platform = Set.Platform(name,
+                                                    description,
+                                                    platform_address,
+                                                    0,
+                                                    0,
+                                                    0,
+                                                    content_types,
+                                                    ad_type_filter);
+        
+        registrated_platforms.push(platform_address);
+        platforms[platform_address] = platform;
+    }
     
     // Register new advertizer
-    function register_advertiser (bytes32 name) public;
+    function register_advertiser (bytes32 name, string memory description) public{
+        address advertizer_address = msg.sender;
+        address[] memory advertiser_campaigns;
+        Set.Advertizer memory advertizer =  Set.Advertizer (name,
+                                                     description,
+                                                     advertizer_address,
+                                                     0,
+                                                     0,
+                                                     0,
+                                                     advertiser_campaigns);
+        registrated_advertizers.push(advertizer_address); 
+        advertizers[advertizer_address] = advertizer;
+        
+    }
+    
+    // Top up the balance
+    function top_up_balance() public payable{
+        advertizers[msg.sender].balance+=msg.value;
+    }
+    
+    //Register new advertising campaign
+    function regiter_advertising_campaign (address ad_campaign_address) public{
+        
+        AdCampaign campaign = AdCampaign(ad_campaign_address);
+        
+        require(
+            msg.sender == campaign.owner(),
+            "Only owner can call this."
+        );
+        
+        registrated_campaigns.push(ad_campaign_address);
+        campaigns[ad_campaign_address] = campaign;
+    }
+    
+    //Unregister advertising campaign
+    function unregiter_advertising_campaign (address ad_campaign_address) public{
+        
+        AdCampaign campaign = AdCampaign(ad_campaign_address);
+        
+        require(
+            msg.sender == campaign.owner(),
+            "Only owner can call this."
+        );
+        
+        address[] storage array = registrated_campaigns;
+        
+        uint index;
+        for (uint i = 0; i<array.length; i++){
+            if (registrated_campaigns[i]==ad_campaign_address){
+                index = i;
+                break;
+            }
+        }   
+        
+        for (uint i = index; i<array.length-1; i++){
+            array[i] = array[i+1];
+        }
+        delete array[array.length-1];
+        array.length--;
+        
+        registrated_campaigns.push(ad_campaign_address);
+        campaigns[ad_campaign_address] = AdCampaign(ad_campaign_address);
+    }
+
+    // Get list of available campaigns for requesded platform.
+    address[] campaigns_for_platform;
+    function receive_available_campaigns() public returns (address[] memory){
+        address[] memory temp_campaigns_for_platform;
+        campaigns_for_platform = temp_campaigns_for_platform;
+        address platform_address = msg.sender;
+        for (uint i=0; i<registrated_campaigns.length; i++) {
+            address ad_campaign_address = registrated_campaigns[i];
+            
+            AdCampaign campaign = campaigns[ad_campaign_address];
+            Set.Advertizer memory advertizer = advertizers[campaign.owner()];
+            if (campaign.orders_count(platform_address)!=0 && advertizer.balance > 0) {
+                campaigns_for_platform.push(ad_campaign_address);
+            }
+                
+        return campaigns_for_platform;
+        }
+    }
     
     
-    // Get list of adds for requesded platform. It returns list of all available adds to add banner and cost of click.
-    function receive_platform_orders() public returns (Set.Order[] memory orders);
-    
+    function recive_order(address campaign_address,address platform_address, uint index) internal view returns (Set.Order memory){
+        AdCampaign campaign = campaigns[campaign_address];
+        
+        (string memory description,
+         address advertizer,
+         address order_campaign_address,
+         address platform,
+         uint cost,
+         bytes32 banner_link,
+         bytes32 site_link) = campaign.orders(platform_address,index);
+         
+         Set.Order memory order = Set.Order(description,advertizer,order_campaign_address,platform,cost,banner_link,site_link);
+         return order;
+    }
     
     // Save clicking event. Avalilable only for add platforms if it assignet to show advertizing and update ranks
-    function report_click(bytes32 add_index) public;
+    function report_click(address campaign_address, uint index, uint cost, uint num_clics) public{
+        
+        address platforms_address = msg.sender;
+        reported_clicks[campaign_address][platforms_address][index][cost] += num_clics;
+        platforms[platforms_address].num_reported+=num_clics;
+        
+        uint num_reported_clicks = reported_clicks[campaign_address][platforms_address][index][cost];
+        
+        if (reported_transfers[campaign_address][platforms_address][index][cost] >= num_reported_clicks){
+            AdCampaign campaign = AdCampaign(campaign_address);
+            Set.Advertizer memory advertizer = advertizers[campaign.owner()];
+            Set.Platform memory platform = platforms[platforms_address];
+            uint reward = cost*num_clics;
+            
+            advertizer.balance -= reward;
+            platform.balance += reward;
+            
+        }
+    }
     
     // Report transfer on advertized site. Avalilable only for advertizers if he ordered
     // It should check wether user came from desired add platform, assign corresponding reward and update ranks
-    function report_transfer(Set.Order  memory order) public;
+    
+    function report_transfer(address campaign_address, address platforms_address, uint index, uint cost, uint num_transfers) public{
+        AdCampaign campaign = AdCampaign(campaign_address);
+        address advertizer_address = msg.sender;
+        require(
+            msg.sender == campaign.owner(),
+            "Only campaign owner can call this."
+        );
+        
+        reported_transfers[campaign_address][platforms_address][index][cost]+=num_transfers;
+        advertizers[advertizer_address].num_reported += num_transfers;
+        
+        uint num_reported_transfers = reported_transfers[campaign_address][platforms_address][index][cost];
+        
+        if (reported_clicks[campaign_address][platforms_address][index][cost] >= num_reported_transfers){
+            Set.Advertizer memory advertizer = advertizers[campaign.owner()];
+            Set.Platform memory platform = platforms[platforms_address];
+            uint reward = cost*num_transfers;
+            
+            advertizer.balance -= reward;
+            platform.balance += reward;
+            
+        }
+        
+    }
     
     // Trasfer earned ether to add platform address. 
-    function transfer_reward() public;
+    function transfer_reward() public payable{
+        Set.Platform memory platform = platforms[msg.sender];
+        msg.sender.transfer(platform.balance);
+        platform.balance = 0;
+    }
     
-    //Register new advertising campaign
-    function regiter_advertising_campaign (address ad_campaign_address) public;
-        // ad_campaign = AdCampaign(ad_campaign_address)
     
-    //Show all saved campaigns of advertizer
-    function show_availabe_campaigns() public;
     
-    // Start campaign 
-    function start_campaign(bytes32 campaign_name) public payable;
+    //Comment advertizer or platform
+    function give_feedback(address to,string memory comment, uint grade) public{
+        
+        require(
+            0 <= grade && grade<=10,
+            "Grade should be in range from 0 to 10"
+        );
+        
+        Set.Feedback memory feedback = Set.Feedback(comment,to,msg.sender,grade);
+        feedbacks[to].push(feedback);
+    }
     
-    // Stop campaign 
-    function stop_campaign(bytes32 campaign_name) public payable;
-    
-    //Comment advertizer
-    function comment_advertizer(bytes32 advertzier_name,bytes32 comment) public;
-    
-    //Comment platform
-    function comment_platform(bytes32 platform_name, bytes32 comment) public;
-    
-    // Get all available filters
-    function recieve_platform_filters () public returns (bytes32[]  memory filters);
-    
-    // Get all available platform types
-    function recieve_platform_types () public returns (bytes32[] memory types);
-    
-    //Show advertizer info (parse Advertizer)
-    function show_advertizer_info () public returns (string memory info);
-    
-    //Show platform info (parse Platform)
-    function show_platform_info () public returns (string memory info);
-    
-    //Show all advertizers
-    function show_advertizers () public returns (string memory info);
-    
-    //Show all platforms
-    function show_platforms () public returns (string memory info); 
     
     
 }
