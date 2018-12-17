@@ -137,8 +137,6 @@ contract ManualAdCampaign is AdCampaign{
 
     }
     
-    
-
     // Report transfer and resend it to contract
     function report_transfer(address platform, uint index,uint cost, uint num_transfers) public onlyOwner {
         ad_contract.report_transfer(address(this),platform,index,cost, num_transfers);
@@ -310,6 +308,9 @@ contract AdContract {
             num_confirned_clics = num_reported_clicks;
         }
         
+        platforms[platform_address].num_adjusted+=num_confirned_clics;
+        advertizers[campaigns[campaign_address].owner()].num_adjusted+=num_confirned_clics;
+        
         uint reward = cost*num_confirned_clics;
         reported_transfers[campaign_address][platform_address][index][cost]-=num_confirned_clics;
         reported_clicks[campaign_address][platform_address][index][cost]-=num_confirned_clics;
@@ -338,8 +339,8 @@ contract AdContract {
         AdCampaign campaign = AdCampaign(campaign_address);
         address advertizer_address = msg.sender;
         require(
-            msg.sender == campaign.owner(),
-            "Only campaign owner can call this."
+            msg.sender == campaign.owner() || msg.sender == campaign_address,
+            "Only campaign or owner can call this."
         );
         
         reported_transfers[campaign_address][platform_address][index][cost]+=num_transfers;
@@ -352,14 +353,14 @@ contract AdContract {
     
     // Trasfer earned ether to add platform address. 
     function transfer_reward() public payable{
-        Set.Platform memory platform = platforms[msg.sender];
+        Set.Platform storage platform = platforms[msg.sender];
         msg.sender.transfer(platform.balance);
         platform.balance = 0;
     }
     
     // Return balance to add advertizer address. 
     function return_balance() public payable{
-        Set.Advertizer memory advertizer = advertizers[msg.sender];
+        Set.Advertizer storage advertizer = advertizers[msg.sender];
         msg.sender.transfer(advertizer.balance);
         advertizer.balance = 0;
     }
