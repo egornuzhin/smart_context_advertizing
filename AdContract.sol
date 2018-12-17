@@ -219,7 +219,7 @@ contract AdContract {
     }
     
     //Register new advertising campaign
-    function regiter_advertising_campaign (address ad_campaign_address) public{
+    function register_advertising_campaign (address ad_campaign_address) public{
         
         AdCampaign campaign = AdCampaign(ad_campaign_address);
         
@@ -233,7 +233,7 @@ contract AdContract {
     }
     
     //Unregister advertising campaign
-    function unregiter_advertising_campaign (address ad_campaign_address) public{
+    function unregister_advertising_campaign (address ad_campaign_address) public{
         
         AdCampaign campaign = AdCampaign(ad_campaign_address);
         
@@ -257,9 +257,6 @@ contract AdContract {
         }
         delete array[array.length-1];
         array.length--;
-        
-        registrated_campaigns.push(ad_campaign_address);
-        campaigns[ad_campaign_address] = AdCampaign(ad_campaign_address);
     }
 
     // Get list of available campaigns for requesded platform.
