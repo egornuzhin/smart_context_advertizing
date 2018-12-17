@@ -144,6 +144,10 @@ contract ManualAdCampaign is AdCampaign{
 
 
 contract AdContract {
+    
+    // Events that will be emitted on changes.
+    event ClickReported(address campaign_address,address platform_address, uint index, uint cost, uint num_clics);
+    event TransferReported(address campaign_address,address platform_address, uint index, uint cost, uint num_transfers);
 
     
     // Reported clicks of platform invoices[campaign][platform][index][cost]=> num_clics
@@ -239,9 +243,9 @@ contract AdContract {
         address[] storage array = registrated_campaigns;
         
         uint index;
-        for (uint i = 0; i<array.length; i++){
-            if (registrated_campaigns[i]==ad_campaign_address){
-                index = i;
+        for (uint j = 0; j<array.length; j++){
+            if (registrated_campaigns[j]==ad_campaign_address){
+                index = j;
                 break;
             }
         }   
@@ -294,28 +298,31 @@ contract AdContract {
     // Save clicking event. Avalilable only for add platforms if it assignet to show advertizing and update ranks
     function report_click(address campaign_address, uint index, uint cost, uint num_clics) public{
         
-        address platforms_address = msg.sender;
-        reported_clicks[campaign_address][platforms_address][index][cost] += num_clics;
-        platforms[platforms_address].num_reported+=num_clics;
+        address platform_address = msg.sender;
+        reported_clicks[campaign_address][platform_address][index][cost] += num_clics;
+        platforms[platform_address].num_reported+=num_clics;
         
-        uint num_reported_clicks = reported_clicks[campaign_address][platforms_address][index][cost];
+        uint num_reported_clicks = reported_clicks[campaign_address][platform_address][index][cost];
         
-        if (reported_transfers[campaign_address][platforms_address][index][cost] >= num_reported_clicks){
+        if (reported_transfers[campaign_address][platform_address][index][cost] >= num_reported_clicks){
             AdCampaign campaign = AdCampaign(campaign_address);
             Set.Advertizer memory advertizer = advertizers[campaign.owner()];
-            Set.Platform memory platform = platforms[platforms_address];
+            Set.Platform memory platform = platforms[platform_address];
             uint reward = cost*num_clics;
             
+            reported_transfers[campaign_address][platform_address][index][cost]-=num_clics;
+            reported_clicks[campaign_address][platform_address][index][cost]-=num_clics;
             advertizer.balance -= reward;
             platform.balance += reward;
-            
         }
+        
+        emit  ClickReported(campaign_address,platform_address,index, cost, num_clics);
     }
     
     // Report transfer on advertized site. Avalilable only for advertizers if he ordered
     // It should check wether user came from desired add platform, assign corresponding reward and update ranks
     
-    function report_transfer(address campaign_address, address platforms_address, uint index, uint cost, uint num_transfers) public{
+    function report_transfer(address campaign_address, address platform_address, uint index, uint cost, uint num_transfers) public{
         AdCampaign campaign = AdCampaign(campaign_address);
         address advertizer_address = msg.sender;
         require(
@@ -323,21 +330,23 @@ contract AdContract {
             "Only campaign owner can call this."
         );
         
-        reported_transfers[campaign_address][platforms_address][index][cost]+=num_transfers;
+        reported_transfers[campaign_address][platform_address][index][cost]+=num_transfers;
         advertizers[advertizer_address].num_reported += num_transfers;
         
-        uint num_reported_transfers = reported_transfers[campaign_address][platforms_address][index][cost];
+        uint num_reported_transfers = reported_transfers[campaign_address][platform_address][index][cost];
         
-        if (reported_clicks[campaign_address][platforms_address][index][cost] >= num_reported_transfers){
+        if (reported_clicks[campaign_address][platform_address][index][cost] >= num_reported_transfers){
             Set.Advertizer memory advertizer = advertizers[campaign.owner()];
-            Set.Platform memory platform = platforms[platforms_address];
+            Set.Platform memory platform = platforms[platform_address];
             uint reward = cost*num_transfers;
             
+            reported_transfers[campaign_address][platform_address][index][cost]-=num_transfers;
+            reported_clicks[campaign_address][platform_address][index][cost]-=num_transfers;
             advertizer.balance -= reward;
             platform.balance += reward;
             
         }
-        
+        emit  TransferReported(campaign_address,platform_address,index, cost, num_transfers);
     }
     
     // Trasfer earned ether to add platform address. 
@@ -345,6 +354,13 @@ contract AdContract {
         Set.Platform memory platform = platforms[msg.sender];
         msg.sender.transfer(platform.balance);
         platform.balance = 0;
+    }
+    
+    // Return balance to add advertizer address. 
+    function return_balance() public payable{
+        Set.Advertizer memory advertizer = advertizers[msg.sender];
+        msg.sender.transfer(advertizer.balance);
+        advertizer.balance = 0;
     }
     
     
