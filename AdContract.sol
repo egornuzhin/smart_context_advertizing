@@ -76,6 +76,9 @@ contract AdCampaign {
 
     // retruns is it porn or someting else. Should be checked
     Set.CampaignType[] public  campaign_types;
+    function campaign_types_count() public view returns (uint){
+        return campaign_types.length;
+    }
     
     
     constructor(bytes32 _campaign_name,
@@ -113,14 +116,15 @@ contract ManualAdCampaign is AdCampaign{
     // add new order  
     function add_order (
         string memory description,
-        address advertizer,
-        address campaign,
         address platform,
         uint cost,
         bytes32 banner_link,
         bytes32 site_link)
         
         public onlyOwner returns (uint) {
+        
+        address campaign = address(this);
+        address advertizer = owner;
         Set.Order memory order = Set.Order(description, advertizer, campaign, platform, cost, banner_link, site_link);
         orders[platform].push(order);
         
@@ -158,7 +162,7 @@ contract AdContract {
     
     //All Campaigns
     address[] public registrated_campaigns;
-    mapping (address => AdCampaign) public campaigns;
+    mapping (address => AdCampaign) campaigns;
 
     //All Platform
     address[] public registrated_platforms;
@@ -261,7 +265,7 @@ contract AdContract {
     }
 
     // Get list of available campaigns for requesded platform.
-    address[] campaigns_for_platform;
+    address[] campaigns_for_platform; // Error 
     function receive_available_campaigns() public returns (address[] memory){
         address[] memory temp_campaigns_for_platform;
         campaigns_for_platform = temp_campaigns_for_platform;
@@ -295,6 +299,26 @@ contract AdContract {
          return order;
     }
     
+    function update_balances(address campaign_address, address platform_address,
+                             uint index, uint cost) internal {
+        uint num_reported_clicks = reported_clicks[campaign_address][platform_address][index][cost];
+        uint num_reported_transfers = reported_transfers[campaign_address][platform_address][index][cost];
+        uint num_confirned_clics;
+        if (num_reported_clicks>num_reported_transfers){
+            num_confirned_clics = num_reported_transfers;
+        } else{
+            num_confirned_clics = num_reported_clicks;
+        }
+        
+        uint reward = cost*num_confirned_clics;
+        reported_transfers[campaign_address][platform_address][index][cost]-=num_confirned_clics;
+        reported_clicks[campaign_address][platform_address][index][cost]-=num_confirned_clics;
+        
+        advertizers[campaigns[campaign_address].owner()].balance -= reward;
+        platforms[platform_address].balance += reward;
+    }
+    
+    
     // Save clicking event. Avalilable only for add platforms if it assignet to show advertizing and update ranks
     function report_click(address campaign_address, uint index, uint cost, uint num_clics) public{
         
@@ -302,19 +326,7 @@ contract AdContract {
         reported_clicks[campaign_address][platform_address][index][cost] += num_clics;
         platforms[platform_address].num_reported+=num_clics;
         
-        uint num_reported_clicks = reported_clicks[campaign_address][platform_address][index][cost];
-        
-        if (reported_transfers[campaign_address][platform_address][index][cost] >= num_reported_clicks){
-            AdCampaign campaign = AdCampaign(campaign_address);
-            Set.Advertizer memory advertizer = advertizers[campaign.owner()];
-            Set.Platform memory platform = platforms[platform_address];
-            uint reward = cost*num_clics;
-            
-            reported_transfers[campaign_address][platform_address][index][cost]-=num_clics;
-            reported_clicks[campaign_address][platform_address][index][cost]-=num_clics;
-            advertizer.balance -= reward;
-            platform.balance += reward;
-        }
+        update_balances(campaign_address, platform_address, index, cost);
         
         emit  ClickReported(campaign_address,platform_address,index, cost, num_clics);
     }
@@ -333,19 +345,8 @@ contract AdContract {
         reported_transfers[campaign_address][platform_address][index][cost]+=num_transfers;
         advertizers[advertizer_address].num_reported += num_transfers;
         
-        uint num_reported_transfers = reported_transfers[campaign_address][platform_address][index][cost];
+        update_balances(campaign_address, platform_address, index, cost);
         
-        if (reported_clicks[campaign_address][platform_address][index][cost] >= num_reported_transfers){
-            Set.Advertizer memory advertizer = advertizers[campaign.owner()];
-            Set.Platform memory platform = platforms[platform_address];
-            uint reward = cost*num_transfers;
-            
-            reported_transfers[campaign_address][platform_address][index][cost]-=num_transfers;
-            reported_clicks[campaign_address][platform_address][index][cost]-=num_transfers;
-            advertizer.balance -= reward;
-            platform.balance += reward;
-            
-        }
         emit  TransferReported(campaign_address,platform_address,index, cost, num_transfers);
     }
     
