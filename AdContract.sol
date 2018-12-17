@@ -123,7 +123,7 @@ contract ManualAdCampaign is AdCampaign{
         
         public onlyOwner returns (uint) {
         
-        address campaign = address(this);
+        address campaign = this;
         address advertizer = owner;
         Set.Order memory order = Set.Order(description, advertizer, campaign, platform, cost, banner_link, site_link);
         orders[platform].push(order);
@@ -139,7 +139,7 @@ contract ManualAdCampaign is AdCampaign{
     
     // Report transfer and resend it to contract
     function report_transfer(address platform, uint index,uint cost, uint num_transfers) public onlyOwner {
-        ad_contract.report_transfer(address(this),platform,index,cost, num_transfers);
+        ad_contract.report_transfer(this,platform,index,cost, num_transfers);
     }
 
 }
@@ -336,13 +336,12 @@ contract AdContract {
     // It should check wether user came from desired add platform, assign corresponding reward and update ranks
     
     function report_transfer(address campaign_address, address platform_address, uint index, uint cost, uint num_transfers) public{
-        AdCampaign campaign = AdCampaign(campaign_address);
-        address advertizer_address = msg.sender;
+        
         require(
-            msg.sender == campaign.owner() || msg.sender == campaign_address,
+            msg.sender == campaigns[campaign_address].owner() || msg.sender == campaign_address,
             "Only campaign or owner can call this."
         );
-        
+        address advertizer_address = campaigns[campaign_address].owner();
         reported_transfers[campaign_address][platform_address][index][cost]+=num_transfers;
         advertizers[advertizer_address].num_reported += num_transfers;
         
