@@ -1,4 +1,4 @@
-pragma solidity >=0.4.22 <0.6.0;
+pragma solidity ^0.4.22 <0.5.0;
 
 import "remix_tests.sol"; // this import is automatically injected by Remix.
 import "./AdContract.sol";
@@ -55,14 +55,12 @@ contract test {
         ManualAdCampaign campaign = campaigns[0];
         
         string memory description = "Some order 1";
-        address advertizer = msg.sender;
-        address campaign_address = address(campaign);
         address platform = ad_contract.registrated_platforms(0);
         uint cost = 100;
         bytes32 banner_link = "http://badder.png";
         bytes32 site_link = "http://mysite.com";
         
-        campaign.add_order(description,advertizer,campaign_address,platform,cost,banner_link,site_link);
+        campaign.add_order(description,platform,cost,banner_link,site_link);
         
         
     }
@@ -89,12 +87,4 @@ contract test {
         site_link) = AdCampaign(campaign_address).orders(msg.sender,0);
     }
     
-    // function checkWinningProposal () public {
-    //     ballotToTest.vote(1);
-    //     Assert.equal(ballotToTest.winningProposal(), uint(1), "1 should be the winning proposal");
-    // }
-    
-    // function checkWinninProposalWithReturnValue () public view returns (bool) {
-    //     return ballotToTest.winningProposal() == 1;
-    // }
 }

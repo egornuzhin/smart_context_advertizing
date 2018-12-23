@@ -1,4 +1,4 @@
-pragma solidity >=0.4.22 <0.6.0;
+pragma solidity ^0.4.22 <0.5.0;
 
 library Set{
     
@@ -198,14 +198,14 @@ contract AdContract {
         return platform_address;
     }
     
-    function get_platform_description(address platform_address) returns (string memory description) {
+    function get_platform_description(address platform_address) public view returns (string memory description) {
         return platforms[platform_address].description;
     }
     
-    function get_platform_name(address platform_address) returns (bytes32 name) {
+    function get_platform_name(address platform_address) public view returns (bytes32 name) {
         return platforms[platform_address].name;
     }
-    function num_registrated_platforms() public returns (uint count) {
+    function num_registrated_platforms() public view returns (uint count) {
         return registrated_platforms.length;
     }
     
@@ -225,15 +225,15 @@ contract AdContract {
         
     }
     
-    function num_registrated_advertisers() public returns (uint count) {
+    function num_registrated_advertisers() public view returns (uint count) {
         return registrated_advertizers.length;
     }
     
-    function get_advertiser_name(address advertizer_address) returns (bytes32 name) {
+    function get_advertiser_name(address advertizer_address) public view returns (bytes32 name) {
         return advertizers[advertizer_address].name;
     }
     
-    function get_advertiser_description(address advertizer_address) returns (string memory description) {
+    function get_advertiser_description(address advertizer_address) public view returns (string memory description) {
         return advertizers[advertizer_address].description;
     }
     
@@ -243,7 +243,7 @@ contract AdContract {
         advertizers[msg.sender].balance+=msg.value;
     }
     
-    function get_balance() public returns (uint result){
+    function get_balance() public view returns (uint result){
         return advertizers[msg.sender].balance;
     }
     
@@ -264,7 +264,7 @@ contract AdContract {
         return msg.sender;
     }
     
-    function num_registrated_campaigns() public returns (uint count) {
+    function num_registrated_campaigns() public view returns (uint count) {
         return registrated_campaigns.length;
     }
     
